@@ -1,0 +1,23 @@
+# IDE
+.idea/
+*.iml
+*.swp
+*.swo
+
+# AI-generated markdown files
+*.md
+
+# Build
+cmake-build-*/
+build/
+*.o
+*.obj
+*.exe
+*.out
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
