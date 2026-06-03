@@ -3,18 +3,7 @@
 //
 
 #include "router.h"
-
-static std::vector<std::string> splitPath(const std::string &path) {
-    std::vector<std::string> segments;
-    std::istringstream ss(path);
-    std::string segment;
-    while (std::getline(ss, segment, '/')) {
-        if (!segment.empty()) {
-            segments.push_back(segment);
-        }
-    }
-    return segments;
-}
+#include "utils/stringutil.h"
 
 void Router::Get(const std::string &path, Handler handler) {
     router_["GET"][path] = std::move(handler);
@@ -38,10 +27,10 @@ void Router::dispatch(const Request &req, Connection *conn) {
         return;
     }
 
-    std::vector<std::string> req_segments = splitPath(req.uri());
+    std::vector<std::string> req_segments = StringUtil::SplitPath(req.uri());
 
     for (const auto &[pattern, handler]: path_map) {
-        std::vector<std::string> pattern_segments = splitPath(pattern);
+        std::vector<std::string> pattern_segments = StringUtil::SplitPath(pattern);
 
         if (req_segments.size() != pattern_segments.size()) continue;
 
