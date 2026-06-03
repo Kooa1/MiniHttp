@@ -6,6 +6,8 @@
 #define MINIHTTP_EVENTLOOP_H
 
 #include <vector>
+#include <unistd.h>
+#include <sys/epoll.h>
 
 #include "core/channel.h"
 

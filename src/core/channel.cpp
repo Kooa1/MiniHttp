@@ -4,7 +4,6 @@
 
 #include "channel.h"
 
-#include <sys/epoll.h>
 
 Channel::Channel(int fd, uint32_t events) : fd_(fd), events_(events) {
 }

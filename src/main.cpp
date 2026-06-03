@@ -12,6 +12,7 @@
 
 #include "core/eventloop.h"
 #include "core/channel.h"
+#include "http/parser.h"
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,22 +45,28 @@ int main() {
         auto *conn_ch = new Channel(client_fd, EPOLLIN);
 
         conn_ch->setReadCallBack([client_fd, conn_ch, &loop]() {
+            static Parser parser;
             char buf[4096];
             int n = read(client_fd, buf, sizeof(buf) - 1);
             if (n > 0) {
-                buf[n] = '\0';
-                char *end = strstr(buf, "\r\n");
-                if (end) *end = '\0';
-                std::cout << "Request from fd=" << client_fd << ": " << buf << std::endl;
+                size_t consumed = parser.parse(buf, n);
 
-                const std::string http_response =
-                        "HTTP/1.1 200 OK\r\n"
-                        "Content-Type: text/plain\r\n"
-                        "Content-Length: 12\r\n"
-                        "\r\n"
-                        "Hello World!";
+                if (parser.isDone()) {
+                    const Request &req = parser.getRequest();
 
-                send(client_fd, http_response.data(), http_response.size(), 0);
+                    std::cout << "Method: " << (req.method() == Request::GET ? "GET" : "POST") << std::endl;
+                    std::cout << "URI: " << req.uri() << std::endl;
+                    std::cout << "Host: " << req.header("Host") << std::endl;
+
+                    const std::string http_response =
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: text/plain\r\n"
+                            "Content-Length: 12\r\n"
+                            "\r\n"
+                            "Hello World!";
+
+                    send(client_fd, http_response.data(), http_response.size(), 0);
+                }
             }
 
             loop.removeChannel(conn_ch);

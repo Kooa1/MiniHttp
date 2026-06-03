@@ -4,12 +4,6 @@
 
 #include "eventloop.h"
 
-#include <unistd.h>
-#include <sys/epoll.h>
-
-#include "channel.h"
-
-
 EventLoop::EventLoop() : epfd_(epoll_create1(0)), events_(1024) {
 }
 
