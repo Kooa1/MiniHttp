@@ -49,6 +49,8 @@ int main() {
 
         auto *conn = new Connection(&loop, client_fd);
         conn->setRequestCallback([&router](const Request &req, Connection *conn) {
+            std::cout << "URI: '" << req.uri() << "'" << std::endl; // ← 加这行
+            std::cout << "Method: " << req.methodStr() << std::endl; // ← 加这行
             router.dispatch(req, conn);
             conn->mClose();
         });

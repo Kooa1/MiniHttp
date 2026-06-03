@@ -31,17 +31,9 @@ void Connection::handleRead() {
         size_t consumed = parser_.parse(input_buffer_.data(), input_buffer_.size());
         input_buffer_.erase(0, consumed);
         if (parser_.isDone()) {
-            std::cout << "Parsed request: " << parser_.getRequest().methodStr()
-                    << " " << parser_.getRequest().uri() << std::endl;
-
-            const std::string http_response =
-                    "HTTP/1.1 200 OK\r\n"
-                    "Content-Type: text/plain\r\n"
-                    "Content-Length: 12\r\n"
-                    "\r\n"
-                    "Hello World!";
-
-            send(fd_, http_response.data(), http_response.size(), 0);
+            if (request_callback_) {
+                request_callback_(parser_.getRequest(), this);
+            }
         }
     } else {
         mClose();
@@ -72,9 +64,9 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
     std::ostringstream response;
     response << "HTTP/1.1 " << std::to_string(status_code) << " " << reason << "\r\n";
     response << "Content-Type: " << content_type << "\r\n";
-    response << "Content-Length" << std::to_string(body.size()) << "\r\n";
+    response << "Content-Length: " << std::to_string(body.size()) << "\r\n";
     response << "\r\n";
     response << body;
 
-    send(fd_, response.str().data(), sizeof(response) - 1, 0);
+    send(fd_, response.str().data(), response.str().size(), 0);
 }
