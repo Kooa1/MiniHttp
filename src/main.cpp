@@ -35,6 +35,12 @@ int main() {
     router.Get("/about", [](const Request &req, Connection *conn) {
         conn->mSend("This is my server");
     });
+    router.Get("/user/:id", [](const Request &req, Connection *conn) {
+        conn->mSend("User: " + req.param("id"));
+    });
+    router.Get("/user/:id/post/:pid", [](const Request &req, Connection *conn) {
+        conn->mSend("User: " + req.param("id") + ", Post: " + req.param("pid"));
+    });
 
     Channel accept_channel(server_fd, EPOLLIN);
 

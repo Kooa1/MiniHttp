@@ -4,6 +4,18 @@
 
 #include "router.h"
 
+static std::vector<std::string> splitPath(const std::string &path) {
+    std::vector<std::string> segments;
+    std::istringstream ss(path);
+    std::string segment;
+    while (std::getline(ss, segment, '/')) {
+        if (!segment.empty()) {
+            segments.push_back(segment);
+        }
+    }
+    return segments;
+}
+
 void Router::Get(const std::string &path, Handler handler) {
     router_["GET"][path] = std::move(handler);
 }
@@ -23,7 +35,34 @@ void Router::dispatch(const Request &req, Connection *conn) {
     auto path_it = path_map.find(req.uri());
     if (path_it != path_map.end()) {
         path_it->second(req, conn);
-    } else {
-        conn->mSend("Not Found", 404);
+        return;
     }
+
+    std::vector<std::string> req_segments = splitPath(req.uri());
+
+    for (const auto &[pattern, handler]: path_map) {
+        std::vector<std::string> pattern_segments = splitPath(pattern);
+
+        if (req_segments.size() != pattern_segments.size()) continue;
+
+        Request params_req = req;
+        bool match = true;
+
+        for (size_t i = 0; i < pattern_segments.size(); i++) {
+            if (pattern_segments[i][0] == ':') {
+                std::string param_name = pattern_segments[i].substr(1);
+                params_req.setParam(param_name, req_segments[i]);
+            } else if (pattern_segments[i] != req_segments[i]) {
+                match = false;
+                break;
+            }
+        }
+
+        if (match) {
+            handler(params_req, conn);
+            return;
+        }
+    }
+
+    conn->mSend("Not Found", 404);
 }
