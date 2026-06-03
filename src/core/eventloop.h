@@ -27,7 +27,7 @@ public:
 
 private:
     int epfd_;
-    std::pmr::vector<struct epoll_event> events_;
+    std::vector<struct epoll_event> events_;
 };
 
 

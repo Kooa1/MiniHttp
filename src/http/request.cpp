@@ -11,6 +11,15 @@ std::string Request::header(const std::string &key) const {
     return it != headers_.end() ? it->second : "";
 }
 
+std::string Request::methodStr() const {
+    switch (method_) {
+        case GET: return "GET";
+        case POST: return "POST";
+        case HEAD: return "HEAD";
+        default: return "UNKNOWN";
+    }
+}
+
 void Request::addHeader(const std::string &key, const std::string &value) {
     std::string lower_key = key;
     std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), ::tolower);

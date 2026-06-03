@@ -26,9 +26,11 @@ public:
 
     std::string body() const { return body_; };
 
+    std::string methodStr()const;
+
     void setMethod(Method method) { method_ = method; };
 
-    void setUri(const std::string &uri) { uri_ = uri_; };
+    void setUri(const std::string &uri) { uri_ = uri; };
 
     void addHeader(const std::string &key, const std::string &value);
 
