@@ -10,6 +10,7 @@
 #include "core/eventloop.h"
 #include "core/channel.h"
 #include "core/connection.h"
+#include "http/router.h"
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -27,10 +28,17 @@ int main() {
     std::cout << "Server listening on http://localhost:8080" << std::endl;
 
     EventLoop loop;
+    Router router;
+    router.Get("/", [](const Request &req, Connection *conn) {
+        conn->mSend("Hello World!");
+    });
+    router.Get("/about", [](const Request &req, Connection *conn) {
+        conn->mSend("This is my server");
+    });
 
     Channel accept_channel(server_fd, EPOLLIN);
 
-    accept_channel.setReadCallBack([&loop, server_fd]() {
+    accept_channel.setReadCallBack([&loop, server_fd, &router]() {
         struct sockaddr_in client_addr{};
         socklen_t client_len = sizeof(client_addr);
         int client_fd = accept(server_fd, reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
@@ -40,6 +48,10 @@ int main() {
                 << ":" << ntohs(client_addr.sin_port) << std::endl;
 
         auto *conn = new Connection(&loop, client_fd);
+        conn->setRequestCallback([&router](const Request &req, Connection *conn) {
+            router.dispatch(req, conn);
+            conn->mClose();
+        });
     });
 
     loop.addChannel(&accept_channel);

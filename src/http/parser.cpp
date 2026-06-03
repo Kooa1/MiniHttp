@@ -84,6 +84,10 @@ size_t Parser::parse(const char *data, size_t len) {
             case DONE:
                 break;
         }
+
+        if (state_ == BODY) {
+            state_ = DONE;
+        }
     }
 
     return i;
