@@ -38,6 +38,10 @@ void Connection::handleRead() {
         input_buffer_ += buf;
 
         size_t consumed = parser_.parse(input_buffer_.data(), input_buffer_.size());
+        if (parser_.hasError()) {
+            mClose();
+            return;
+        }
         input_buffer_.erase(0, consumed);
         if (parser_.isDone()) {
             if (request_callback_) {

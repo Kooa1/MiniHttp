@@ -29,9 +29,18 @@ public:
 
     const Request &getRequest() const { return request_; };
 
+    bool hasError() const { return error_; }
+
     void reset();
 
 private:
+    bool checkBuffer(char c);
+
+    static constexpr size_t kMaxTokenSize = 8192;
+    static constexpr size_t kMaxBodySize = 1048576;
+    bool error_ = false;
+    size_t body_bytes_remaining_ = 0;
+
     State state_ = METHOD;
     Request request_;
     std::string buffer_;
