@@ -4,10 +4,22 @@
 
 #include "eventloop.h"
 
-EventLoop::EventLoop() : epfd_(epoll_create1(0)), events_(1024) {
+EventLoop::EventLoop()
+    : epfd_(epoll_create1(0)),
+      events_(1024),
+      eventfd_(eventfd(0, EFD_NONBLOCK)),
+      wakeup_channel_(new Channel(eventfd_, EPOLLIN)) {
+    wakeup_channel_->setReadCallBack([this]() {
+        uint64_t one;
+        read(eventfd_, &one, sizeof(one));
+    });
+    addChannel(wakeup_channel_);
 }
 
 EventLoop::~EventLoop() {
+    removeChannel(wakeup_channel_);
+    delete wakeup_channel_;
+    close(eventfd_);
     close(epfd_);
 }
 
@@ -29,6 +41,14 @@ void EventLoop::updateChannel(Channel *ch) {
     epoll_ctl(epfd_, EPOLL_CTL_MOD, ch->fd(), &ev);
 }
 
+void EventLoop::queueLoop(Functor function) { {
+        std::lock_guard<std::mutex> lock_guard(mutex_);
+        pending_functors_.push_back(std::move(function));
+    }
+    uint64_t one = 1;
+    write(eventfd_, &one, sizeof(one));
+}
+
 void EventLoop::loop() {
     while (true) {
         int nfds = epoll_wait(epfd_, events_.data(), static_cast<int>(events_.size()), -1);
@@ -37,5 +57,16 @@ void EventLoop::loop() {
             auto *ch = static_cast<Channel *>(events_[i].data.ptr);
             ch->handleEvent();
         }
+        doPendingFunctor();
+    }
+}
+
+void EventLoop::doPendingFunctor() {
+    std::vector<Functor> functors; {
+        std::lock_guard<std::mutex> lock_guard(mutex_);
+        functors.swap(pending_functors_);
+    }
+    for (auto &f: functors) {
+        f();
     }
 }

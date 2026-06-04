@@ -5,14 +5,19 @@
 #ifndef MINIHTTP_EVENTLOOP_H
 #define MINIHTTP_EVENTLOOP_H
 
+#include <mutex>
 #include <vector>
+#include <cstdint>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 #include "core/channel.h"
 
 class EventLoop {
 public:
+    using Functor = std::function<void()>;
+
     EventLoop();
 
     ~EventLoop();
@@ -23,11 +28,20 @@ public:
 
     void updateChannel(Channel *ch);
 
+    void queueLoop(Functor function);
+
     void loop();
 
 private:
+    void doPendingFunctor();
+
     int epfd_;
     std::vector<struct epoll_event> events_;
+
+    int eventfd_;
+    Channel *wakeup_channel_;
+    std::mutex mutex_;
+    std::vector<Functor> pending_functors_;
 };
 
 

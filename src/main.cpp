@@ -11,6 +11,7 @@
 #include "core/channel.h"
 #include "core/connection.h"
 #include "http/router.h"
+#include "thread/threadpool.h"
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -28,18 +29,34 @@ int main() {
     std::cout << "Server listening on http://localhost:8080" << std::endl;
 
     EventLoop loop;
+    ThreadPool thread_pool(4);
+
     Router router;
     router.Get("/", [](const Request &req, Connection *conn) {
         conn->mSend("Hello World!");
+        conn->mClose();
     });
     router.Get("/about", [](const Request &req, Connection *conn) {
         conn->mSend("This is my server");
+        conn->mClose();
     });
     router.Get("/user/:id", [](const Request &req, Connection *conn) {
         conn->mSend("User: " + req.param("id"));
+        conn->mClose();
     });
     router.Get("/user/:id/post/:pid", [](const Request &req, Connection *conn) {
         conn->mSend("User: " + req.param("id") + ", Post: " + req.param("pid"));
+        conn->mClose();
+    });
+    router.Get("/slow", [&loop, &thread_pool](const Request &req, Connection *conn) {
+        Request req_copy = req;
+        thread_pool.submit([&loop, conn, req_copy]() {
+            std::string result = "Heavy computation for " + req_copy.uri();
+            loop.queueLoop([conn, result]() {
+                conn->mSend(result);
+                conn->mClose();
+            });
+        });
     });
 
     Channel accept_channel(server_fd, EPOLLIN);
@@ -58,7 +75,6 @@ int main() {
             std::cout << "URI: '" << req.uri() << "'" << std::endl; // ← 加这行
             std::cout << "Method: " << req.methodStr() << std::endl; // ← 加这行
             router.dispatch(req, conn);
-            conn->mClose();
         });
     });
 
