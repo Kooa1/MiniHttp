@@ -33,8 +33,7 @@ void RouteRegister::Register(HttpServer &server) {
             // 工作线程：模拟 CPU 密集计算
             std::string result = "Heavy computation for " + req_copy.uri();
 
-            // 交回 IO 线程发送响应
-            server.loop().queueInLoop([conn, result, alive]() {
+            conn->loop()->queueInLoop([conn, result, alive]() {
                 if (!*alive) return;
                 conn->mSend(result);
                 conn->cleanupAfterSend();
