@@ -23,7 +23,7 @@ void ThreadPool::mStop() { {
     cv_.notify_all();
     for (auto &worker: workers_) {
         if (worker.joinable()) {
-            worker.joinable();
+            worker.join();
         }
     }
 }
@@ -40,7 +40,7 @@ void ThreadPool::workerLoop() {
         Task task; {
             std::unique_lock<std::mutex> lock(mutex_);
             cv_.wait(lock, [this] {
-                return stop_ || tasks_.empty();
+                return stop_ || !tasks_.empty();
             });
 
             if (stop_ && tasks_.empty()) {
