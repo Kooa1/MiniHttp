@@ -10,7 +10,7 @@ int main() {
     sigaddset(&mask, SIGTERM);
     sigprocmask(SIG_BLOCK, &mask, nullptr);
 
-    HttpServer server(8080, 4);
+    HttpServer server(8080, 2, 4);
 
     RouteRegister::Register(server);
 
