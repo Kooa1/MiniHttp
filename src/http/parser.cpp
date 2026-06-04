@@ -95,7 +95,7 @@ size_t Parser::parse(const char *data, size_t len) {
                 }
 
                 size_t to_read = std::min(body_bytes_remaining_, len - i);
-                request_.body().append(data + i, to_read);
+                request_.appendBody(data + i, to_read);
                 i += to_read - 1;
                 body_bytes_remaining_ -= to_read;
                 if (body_bytes_remaining_ == 0) {
