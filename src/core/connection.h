@@ -39,6 +39,8 @@ public:
                const std::string &content_type = "text/plain");
 
 private:
+    static constexpr size_t kMaxBufferSize = 65536;
+
     EventLoop *loop_;
     Socket fd_;
     Channel channel_;

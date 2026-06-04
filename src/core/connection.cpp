@@ -28,6 +28,13 @@ void Connection::handleRead() {
     int n = read(fd_.get(), buf, sizeof(buf) - 1);
     if (n > 0) {
         buf[n] = '\0';
+
+        if (input_buffer_.size() + n > kMaxBufferSize) {
+            std::cout << "input buffer exceeds limit, closing fd=" << fd_.get() << std::endl;
+            mClose();
+            return;
+        }
+
         input_buffer_ += buf;
 
         size_t consumed = parser_.parse(input_buffer_.data(), input_buffer_.size());
@@ -75,7 +82,7 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
 
     if (parser_.isDone()) {
         const auto &req = parser_.getRequest();
-        std::string conn = req.header("connction");
+        std::string conn = req.header("connection");
         if (conn == "keep-alive") {
             keep_alive_ = true;
         } else if (conn == "close") {
