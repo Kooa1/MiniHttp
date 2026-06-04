@@ -18,6 +18,12 @@ public:
         UNKNOWN
     };
 
+    enum Version {
+        HTTP_1_0,
+        HTTP_1_1,
+        HTTP_UNKNOWN
+    };
+
     Method method() const { return method_; };
 
     std::string uri() const { return uri_; };
@@ -30,6 +36,8 @@ public:
 
     std::string param(const std::string &key) const;
 
+    Version version() const { return version_; };
+
     void setMethod(Method method) { method_ = method; };
 
     void setUri(const std::string &uri) { uri_ = uri; };
@@ -40,10 +48,13 @@ public:
 
     void setParam(const std::string &key, const std::string &value);
 
+    void setVersion(Version version) { version_ = version; };
+
     void reset();
 
 private:
     Method method_ = UNKNOWN;
+    Version version_ = HTTP_UNKNOWN;
     std::string uri_;
     std::map<std::string, std::string> headers_;
     std::map<std::string, std::string> params_;

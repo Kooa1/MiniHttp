@@ -36,8 +36,22 @@ void Connection::handleRead() {
             if (request_callback_) {
                 request_callback_(parser_.getRequest(), this);
             }
+
+            if (!close_ && sent_) {
+                std::cout << "DEBUG handleRead: keep_alive_=" << keep_alive_ << std::endl;
+                if (keep_alive_) {
+                    parser_.reset();
+                    input_buffer_.clear();
+                    sent_ = false;
+                    keep_alive_ = false;
+                } else {
+                    std::cout << "read<=0, client closed fd=" << fd_ << std::endl;
+                    mClose();
+                }
+            }
         }
     } else {
+        std::cout << "keep-alive=false, closing fd=" << fd_ << std::endl;
         mClose();
     }
 }
@@ -60,6 +74,18 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
     if (sent_) return;
     sent_ = true;
 
+    if (parser_.isDone()) {
+        const auto &req = parser_.getRequest();
+        std::string conn = req.header("connction");
+        if (conn == "keep-alive") {
+            keep_alive_ = true;
+        } else if (conn == "close") {
+            keep_alive_ = false;
+        } else if (req.version() == Request::HTTP_1_1) {
+            keep_alive_ = true;
+        }
+    }
+
     auto it = kStatusText.find(status_code);
     std::string reason = (it != kStatusText.end()) ? it->second : "Unknown";
 
@@ -67,6 +93,11 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
     response << "HTTP/1.1 " << std::to_string(status_code) << " " << reason << "\r\n";
     response << "Content-Type: " << content_type << "\r\n";
     response << "Content-Length: " << std::to_string(body.size()) << "\r\n";
+
+    if (keep_alive_) {
+        response << "Connection: keep-alive\r\n";
+    }
+
     response << "\r\n";
     response << body;
 

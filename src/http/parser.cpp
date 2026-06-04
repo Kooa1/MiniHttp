@@ -40,8 +40,12 @@ size_t Parser::parse(const char *data, size_t len) {
 
             case VERSION:
                 if (c == '\n') {
+                    if (buffer_ == "HTTP/1.1") request_.setVersion(Request::HTTP_1_1);
+                    else if (buffer_ == "HTTP/1.0") request_.setVersion(Request::HTTP_1_0);
                     buffer_.clear();
                     state_ = HEADER_KEY;
+                } else if (c != '\r') {
+                    buffer_ += c;
                 }
                 break;
 

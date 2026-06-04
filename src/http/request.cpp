@@ -41,4 +41,5 @@ void Request::reset() {
     headers_.clear();
     params_.clear();
     body_.clear();
+    version_ = HTTP_UNKNOWN;
 }

@@ -47,6 +47,7 @@ private:
     RequestCallback request_callback_;
     bool close_ = false;
     bool sent_ = false;
+    bool keep_alive_ = false;
 
     static const std::unordered_map<int, std::string> kStatusText;
 };
