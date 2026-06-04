@@ -20,9 +20,9 @@ public:
 
     void removeConnection(Connection *conn) { connections_.erase(conn); }
 
-    void closeAllConnection();
-
     const std::unordered_set<Connection *> &connections() const { return connections_; }
+
+    void closeAllConnection();
 
 private:
     std::unordered_set<Connection *> connections_;
