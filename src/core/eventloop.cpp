@@ -19,7 +19,6 @@ EventLoop::EventLoop()
 EventLoop::~EventLoop() {
     removeChannel(wakeup_channel_);
     delete wakeup_channel_;
-    close(eventfd_.get());
     close(epfd_);
 }
 
