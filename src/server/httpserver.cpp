@@ -84,7 +84,7 @@ void HttpServer::onAccept() {
             << " from " << inet_ntoa(client_addr.sin_addr)
             << ":" << ntohs(client_addr.sin_port) << std::endl;
 
-    auto *channel_accept = new Connection(&loop_, client_fd.release());
+    auto *channel_accept = new Connection(&loop_, std::move(client_fd));
     channel_accept->setCallback([this, channel_accept] {
         std::cout << "Connection " << channel_accept->fd() << " removed" << std::endl;
         connections_.erase(channel_accept);

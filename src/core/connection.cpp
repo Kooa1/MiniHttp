@@ -10,9 +10,9 @@ const std::unordered_map<int, std::string> Connection::kStatusText = {
     {500, "Internal Server Error"}
 };
 
-Connection::Connection(EventLoop *loop, int fd) : loop_(loop), fd_(fd), channel_(fd, EPOLLIN) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+Connection::Connection(EventLoop *loop, Socket fd) : loop_(loop), fd_(std::move(fd)), channel_(fd_.get(), EPOLLIN) {
+    int flags = fcntl(fd_.get(), F_GETFL, 0);
+    fcntl(fd_.get(), F_SETFL, flags | O_NONBLOCK);
     channel_.setReadCallBack([this]() {
         handleRead();
     });
@@ -25,7 +25,7 @@ Connection::~Connection() {
 
 void Connection::handleRead() {
     char buf[4096];
-    int n = read(fd_, buf, sizeof(buf) - 1);
+    int n = read(fd_.get(), buf, sizeof(buf) - 1);
     if (n > 0) {
         buf[n] = '\0';
         input_buffer_ += buf;
@@ -45,13 +45,13 @@ void Connection::handleRead() {
                     sent_ = false;
                     keep_alive_ = false;
                 } else {
-                    std::cout << "read<=0, client closed fd=" << fd_ << std::endl;
+                    std::cout << "read<=0, client closed fd=" << fd_.get() << std::endl;
                     mClose();
                 }
             }
         }
     } else {
-        std::cout << "keep-alive=false, closing fd=" << fd_ << std::endl;
+        std::cout << "keep-alive=false, closing fd=" << fd_.get() << std::endl;
         mClose();
     }
 }
@@ -61,7 +61,6 @@ void Connection::mClose() {
     close_ = true;
 
     loop_->removeChannel(&channel_);
-    close(fd_);
     if (close_callback_) close_callback_();
     delete this;
 }
@@ -101,5 +100,5 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
     response << "\r\n";
     response << body;
 
-    send(fd_, response.str().data(), response.str().size(), 0);
+    send(fd_.get(), response.str().data(), response.str().size(), 0);
 }

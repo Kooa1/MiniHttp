@@ -13,17 +13,18 @@
 #include "channel.h"
 #include "eventloop.h"
 #include "http/parser.h"
+#include "net/socket.h"
 
 class Connection {
 public:
     using CloseCallback = std::function<void()>;
     using RequestCallback = std::function<void(const Request &req, Connection *conn)>;
 
-    Connection(EventLoop *loop, int fd);
+    Connection(EventLoop *loop, Socket fd);
 
     ~Connection();
 
-    int fd() const { return fd_; };
+    int fd() const { return fd_.get(); };
 
     void handleRead();
 
@@ -39,7 +40,7 @@ public:
 
 private:
     EventLoop *loop_;
-    int fd_;
+    Socket fd_;
     Channel channel_;
     Parser parser_;
     std::string input_buffer_;
