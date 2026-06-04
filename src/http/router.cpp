@@ -3,7 +3,6 @@
 //
 
 #include "router.h"
-#include "utils/stringutil.h"
 
 void Router::Get(const std::string &path, Handler handler) {
     router_["GET"][path] = std::move(handler);

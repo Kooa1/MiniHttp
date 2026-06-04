@@ -7,6 +7,7 @@
 
 #include "request.h"
 #include "core/connection.h"
+#include "utils/stringutil.h"
 
 class Router {
 public:
