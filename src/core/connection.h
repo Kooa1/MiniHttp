@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 #include "channel.h"
 #include "eventloop.h"
