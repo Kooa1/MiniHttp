@@ -26,13 +26,13 @@ public:
 
     ~Connection();
 
-    int fd() const { return fd_.get(); };
+    int fd() const { return fd_.get(); }
 
     void handleRead();
 
     void mClose();
 
-    void setCallback(CloseCallback cb) { close_callback_ = std::move(cb); };
+    void setCallback(CloseCallback cb) { close_callback_ = std::move(cb); }
 
     void setRequestCallback(RequestCallback cb);
 
@@ -41,6 +41,8 @@ public:
                const std::string &content_type = "text/plain");
 
     void cleanupAfterSend();
+
+    EventLoop *loop() const { return loop_; }
 
     std::shared_ptr<bool> aliveToken() const { return alive_; }
 
