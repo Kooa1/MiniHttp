@@ -9,6 +9,7 @@
 #include <sstream>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <unordered_map>
 
 #include "channel.h"
 #include "eventloop.h"
