@@ -7,11 +7,11 @@
 EventLoop::EventLoop()
     : epfd_(epoll_create1(0)),
       events_(1024),
-      eventfd_(eventfd(0, EFD_NONBLOCK)),
-      wakeup_channel_(new Channel(eventfd_, EPOLLIN)) {
+      eventfd_(Socket()),
+      wakeup_channel_(new Channel(eventfd_.get(), EPOLLIN)) {
     wakeup_channel_->setReadCallBack([this]() {
         uint64_t one;
-        read(eventfd_, &one, sizeof(one));
+        read(eventfd_.get(), &one, sizeof(one));
     });
     addChannel(wakeup_channel_);
 }
@@ -19,7 +19,7 @@ EventLoop::EventLoop()
 EventLoop::~EventLoop() {
     removeChannel(wakeup_channel_);
     delete wakeup_channel_;
-    close(eventfd_);
+    close(eventfd_.get());
     close(epfd_);
 }
 
@@ -46,11 +46,11 @@ void EventLoop::queueInLoop(Functor function) { {
         pending_functors_.push_back(std::move(function));
     }
     uint64_t one = 1;
-    write(eventfd_, &one, sizeof(one));
+    write(eventfd_.get(), &one, sizeof(one));
 }
 
 void EventLoop::loop() {
-    while (true) {
+    while (!quit_) {
         int nfds = epoll_wait(epfd_, events_.data(), static_cast<int>(events_.size()), -1);
 
         for (int i = 0; i < nfds; i++) {
@@ -59,6 +59,12 @@ void EventLoop::loop() {
         }
         doPendingFunctor();
     }
+}
+
+void EventLoop::mStop() {
+    quit_ = true;
+    uint64_t one = 1;
+    write(eventfd_.get(), &one, sizeof(one));
 }
 
 void EventLoop::doPendingFunctor() {

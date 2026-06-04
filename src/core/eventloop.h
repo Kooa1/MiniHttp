@@ -13,6 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "core/channel.h"
+#include "net/socket.h"
 
 class EventLoop {
 public:
@@ -32,16 +33,20 @@ public:
 
     void loop();
 
+    void mStop();
+
 private:
     void doPendingFunctor();
 
     int epfd_;
     std::vector<struct epoll_event> events_;
 
-    int eventfd_;
+    Socket eventfd_;
     Channel *wakeup_channel_;
     std::mutex mutex_;
     std::vector<Functor> pending_functors_;
+
+    bool quit_ = false;
 };
 
 

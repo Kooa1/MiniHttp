@@ -11,6 +11,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <unordered_set>
+#include <signal.h>
+#include <sys/signalfd.h>
 
 #include "core/eventloop.h"
 #include "core/connection.h"
@@ -42,12 +45,18 @@ public:
 private:
     void onAccept();
 
+    void mStop();
+
     EventLoop loop_;
     ThreadPool thread_pool_;
     Router router_;
-
     Socket server_fd_;
     Channel accept_channel_;
+
+    Socket signal_fd_;
+    Channel signal_channel_;
+    std::unordered_set<Connection *> connections_;
+    bool stopped_ = false;
 };
 
 

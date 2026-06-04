@@ -4,10 +4,22 @@
 
 #include "httpserver.h"
 
+namespace {
+    int createSignalFD() {
+        sigset_t mask; // 与 main.cpp 用同一组信号
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGINT);
+        sigaddset(&mask, SIGTERM);
+        return signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    }
+}
+
 HttpServer::HttpServer(const uint64_t port, size_t thread_count)
     : thread_pool_(thread_count),
       server_fd_(Socket()),
-      accept_channel_(server_fd_.get(), EPOLLIN) {
+      accept_channel_(server_fd_.get(), EPOLLIN),
+      signal_fd_(createSignalFD()),
+      signal_channel_(signal_fd_.get(), EPOLLIN) {
     constexpr int opt = 1;
     setsockopt(server_fd_.get(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -24,9 +36,17 @@ HttpServer::HttpServer(const uint64_t port, size_t thread_count)
     accept_channel_.setReadCallBack([this]() {
         onAccept();
     });
+
+    signal_channel_.setReadCallBack([this]() {
+        struct signalfd_siginfo info;
+        read(signal_fd_.get(), &info, sizeof(info));
+        std::cout << "Shutting down (signal " << info.ssi_signo << ")..." << std::endl;
+        loop_.mStop();
+    });
 }
 
 HttpServer::~HttpServer() {
+    mStop();
 }
 
 void HttpServer::Get(const std::string &path, Router::Handler handler) {
@@ -46,8 +66,10 @@ ThreadPool &HttpServer::threadPool() {
 }
 
 void HttpServer::mStart() {
+    loop_.addChannel(&signal_channel_);
     loop_.addChannel(&accept_channel_);
     loop_.loop();
+    mStop();
 }
 
 void HttpServer::onAccept() {
@@ -63,7 +85,28 @@ void HttpServer::onAccept() {
             << ":" << ntohs(client_addr.sin_port) << std::endl;
 
     auto *channel_accept = new Connection(&loop_, client_fd.release());
+    channel_accept->setCallback([this, channel_accept] {
+        std::cout << "Connection " << channel_accept->fd() << " removed" << std::endl;
+        connections_.erase(channel_accept);
+    });
+
     channel_accept->setRequestCallback([this](const Request &req, Connection *conn) {
         router_.dispatch(req, conn);
     });
+    connections_.insert(channel_accept);
+}
+
+void HttpServer::mStop() {
+    if (stopped_) return;
+    stopped_ = true;
+
+    loop_.removeChannel(&accept_channel_);
+    loop_.removeChannel(&signal_channel_);
+
+    auto tmp = connections_;
+    for (auto *conn: tmp) {
+        conn->mClose();
+    }
+
+    threadPool().mStop();
 }
