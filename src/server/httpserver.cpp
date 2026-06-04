@@ -14,8 +14,9 @@ namespace {
     }
 }
 
-HttpServer::HttpServer(const uint64_t port, const size_t thread_count)
-    : thread_pool_(thread_count),
+HttpServer::HttpServer(const uint64_t port, size_t io_thread, const size_t thread_count)
+    : event_loop_group_(io_thread),
+      thread_pool_(thread_count),
       server_fd_(Socket(::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0))),
       accept_channel_(server_fd_.get(), EPOLLIN),
       signal_fd_(createSignalFD()),
@@ -68,7 +69,11 @@ ThreadPool &HttpServer::threadPool() {
 void HttpServer::mStart() {
     loop_.addChannel(&signal_channel_);
     loop_.addChannel(&accept_channel_);
+
+    event_loop_group_.mStart();
+
     loop_.loop();
+
     mStop();
 }
 
@@ -84,16 +89,22 @@ void HttpServer::onAccept() {
             << " from " << inet_ntoa(client_addr.sin_addr)
             << ":" << ntohs(client_addr.sin_port) << std::endl;
 
-    auto *channel_accept = new Connection(&loop_, std::move(client_fd));
-    channel_accept->setCallback([this, channel_accept] {
-        std::cout << "Connection " << channel_accept->fd() << " removed" << std::endl;
-        connections_.erase(channel_accept);
-    });
+    auto *slave = event_loop_group_.next();
+    int raw_fd = client_fd.release();
+    slave->runInLoop([slave, this, raw_fd]() mutable {
+        auto *conn = new Connection(slave, Socket(raw_fd));
 
-    channel_accept->setRequestCallback([this](const Request &req, Connection *conn) {
-        router_.dispatch(req, conn);
+        conn->setCallback([slave, conn]() {
+            std::cout << "Connection " << conn->fd() << " removed" << std::endl;
+            slave->removeConnection(conn);
+        });
+
+        conn->setRequestCallback([this](const Request &req, Connection *conn) {
+            router_.dispatch(req, conn);
+        });
+
+        slave->addConnection(conn);
     });
-    connections_.insert(channel_accept);
 }
 
 void HttpServer::mStop() {
@@ -103,10 +114,7 @@ void HttpServer::mStop() {
     loop_.removeChannel(&accept_channel_);
     loop_.removeChannel(&signal_channel_);
 
-    auto tmp = connections_;
-    for (auto *conn: tmp) {
-        conn->mClose();
-    }
+    event_loop_group_.stopAll();
 
     threadPool().mStop();
 }

@@ -16,6 +16,8 @@
 #include <sys/signalfd.h>
 
 #include "core/eventloop.h"
+#include "core/eventloopgroup.h"
+#include "core/slaveeventloop.h"
 #include "core/connection.h"
 #include "http/router.h"
 #include "thread/threadpool.h"
@@ -24,7 +26,9 @@
 
 class HttpServer {
 public:
-    explicit HttpServer(const uint64_t port, size_t thread_count = 4);
+    explicit HttpServer(const uint64_t port,
+                        size_t io_thread = 2,
+                        size_t thread_count = 4);
 
     HttpServer(const HttpServer &) = delete;
 
@@ -48,14 +52,16 @@ private:
     void mStop();
 
     EventLoop loop_;
+    EventLoopGroup event_loop_group_;
     ThreadPool thread_pool_;
     Router router_;
+
     Socket server_fd_;
     Channel accept_channel_;
 
     Socket signal_fd_;
     Channel signal_channel_;
-    std::unordered_set<Connection *> connections_;
+
     bool stopped_ = false;
 };
 
