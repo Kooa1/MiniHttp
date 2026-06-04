@@ -4,6 +4,7 @@ file(GLOB_RECURSE UTILS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp)
 file(GLOB_RECURSE THREAD_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/thread/*.cpp)
 file(GLOB_RECURSE SERVER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/server/*.cpp)
 file(GLOB_RECURSE RESOURCES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.cpp)
+file(GLOB_RECURSE ROUTE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/handler/*.cpp)
 
 add_library(minihttp_net STATIC
         ${CORE_SOURCES}
@@ -12,6 +13,7 @@ add_library(minihttp_net STATIC
         ${THREAD_SOURCES}
         ${SERVER_SOURCES}
         ${RESOURCES_SOURCES}
+        ${ROUTE_SOURCES}
 )
 
 target_include_directories(minihttp_net PUBLIC
