@@ -35,6 +35,10 @@ void Request::setParam(const std::string &key, const std::string &value) {
     params_[key] = value;
 }
 
+void Request::appendBody(const char *data, size_t len) {
+    body_.append(data, len);
+}
+
 void Request::reset() {
     method_ = UNKNOWN;
     uri_.clear();

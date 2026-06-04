@@ -107,10 +107,6 @@ size_t Parser::parse(const char *data, size_t len) {
                 break;
             }
         }
-
-        if (state_ == BODY) {
-            state_ = DONE;
-        }
     }
 
     return
@@ -118,7 +114,7 @@ size_t Parser::parse(const char *data, size_t len) {
 }
 
 bool Parser::checkBuffer(char c) {
-    if (buffer_.size() >= kMaxBodySize) {
+    if (buffer_.size() >= kMaxTokenSize) {
         error_ = true;
         return false;
     }

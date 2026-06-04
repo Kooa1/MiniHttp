@@ -50,6 +50,8 @@ public:
 
     void setVersion(Version version) { version_ = version; };
 
+    void appendBody(const char* data, size_t len);
+
     void reset();
 
 private:
