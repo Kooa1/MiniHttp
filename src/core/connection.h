@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <unordered_map>
+#include <memory>
 
 #include "channel.h"
 #include "eventloop.h"
@@ -41,6 +42,8 @@ public:
 
     void cleanupAfterSend();
 
+    std::shared_ptr<bool> aliveToken() const { return alive_; }
+
 private:
     static constexpr size_t kMaxBufferSize = 65536;
 
@@ -56,6 +59,8 @@ private:
     bool keep_alive_ = false;
 
     static const std::unordered_map<int, std::string> kStatusText;
+
+    std::shared_ptr<bool> alive_;
 };
 
 

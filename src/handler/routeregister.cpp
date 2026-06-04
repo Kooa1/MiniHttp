@@ -27,14 +27,15 @@ void RouteRegister::Register(HttpServer &server) {
     server.Get("/slow", [&server](const Request &req, Connection *conn) {
         // 拷贝 Request：parser_ 归 Connection 所有，引用会悬空
         Request req_copy = req;
-
+        auto alive = conn->aliveToken();
         // 提交到线程池，不阻塞 IO 线程
-        server.threadPool().submit([&server, conn, req_copy]() {
+        server.threadPool().submit([&server, conn, req_copy, alive]() {
             // 工作线程：模拟 CPU 密集计算
             std::string result = "Heavy computation for " + req_copy.uri();
 
             // 交回 IO 线程发送响应
-            server.loop().queueInLoop([conn, result]() {
+            server.loop().queueInLoop([conn, result, alive]() {
+                if (!*alive) return;
                 conn->mSend(result);
                 conn->cleanupAfterSend();
             });

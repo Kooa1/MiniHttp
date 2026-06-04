@@ -10,7 +10,11 @@ const std::unordered_map<int, std::string> Connection::kStatusText = {
     {500, "Internal Server Error"}
 };
 
-Connection::Connection(EventLoop *loop, Socket fd) : loop_(loop), fd_(std::move(fd)), channel_(fd_.get(), EPOLLIN) {
+Connection::Connection(EventLoop *loop, Socket fd)
+    : loop_(loop),
+      fd_(std::move(fd)),
+      channel_(fd_.get(), EPOLLIN),
+      alive_(std::make_shared<bool>(true)) {
     int flags = fcntl(fd_.get(), F_GETFL, 0);
     fcntl(fd_.get(), F_SETFL, flags | O_NONBLOCK);
     channel_.setReadCallBack([this]() {
@@ -70,7 +74,7 @@ void Connection::handleRead() {
 void Connection::mClose() {
     if (close_) return;
     close_ = true;
-
+    *alive_ = false;
     loop_->removeChannel(&channel_);
     if (close_callback_) close_callback_();
     delete this;
