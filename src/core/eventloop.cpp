@@ -57,11 +57,11 @@ void EventLoop::runInLoop(Functor function) {
 }
 
 bool EventLoop::isInLoopThread() const {
-    return std::this_thread::get_id() == thread_id;
+    return std::this_thread::get_id() == thread_id_;
 }
 
 void EventLoop::loop() {
-    thread_id = std::this_thread::get_id();
+    thread_id_ = std::this_thread::get_id();
     while (!quit_) {
         int nfds = epoll_wait(epfd_, events_.data(), static_cast<int>(events_.size()), -1);
 

@@ -9,7 +9,6 @@
 #include <vector>
 #include <cstdint>
 #include <unistd.h>
-#include <bits/this_thread_sleep.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <thread>
@@ -52,7 +51,7 @@ private:
     std::mutex mutex_;
     std::vector<Functor> pending_functors_;
 
-    std::thread::id thread_id;
+    std::thread::id thread_id_;
     bool quit_ = false;
 };
 
