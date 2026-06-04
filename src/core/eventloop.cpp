@@ -48,7 +48,20 @@ void EventLoop::queueInLoop(Functor function) { {
     write(eventfd_.get(), &one, sizeof(one));
 }
 
+void EventLoop::runInLoop(Functor function) {
+    if (isInLoopThread()) {
+        function();
+    } else {
+        queueInLoop(std::move(function));
+    }
+}
+
+bool EventLoop::isInLoopThread() const {
+    return std::this_thread::get_id() == thread_id;
+}
+
 void EventLoop::loop() {
+    thread_id = std::this_thread::get_id();
     while (!quit_) {
         int nfds = epoll_wait(epfd_, events_.data(), static_cast<int>(events_.size()), -1);
 
