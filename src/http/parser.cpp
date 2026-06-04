@@ -109,8 +109,14 @@ size_t Parser::parse(const char *data, size_t len) {
         }
     }
 
-    return
-            i;
+    if (state_ == BODY && body_bytes_remaining_ == 0) {
+        std::string cl = request_.header("content-length");
+        if (cl.empty()) {
+            state_ = DONE;
+        }
+    }
+
+    return i;
 }
 
 bool Parser::checkBuffer(char c) {
