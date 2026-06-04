@@ -12,7 +12,7 @@ const std::unordered_map<int, std::string> Connection::kStatusText = {
 
 Connection::Connection(EventLoop *loop, int fd) : loop_(loop), fd_(fd), channel_(fd, EPOLLIN) {
     int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFD | O_NONBLOCK);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     channel_.setReadCallBack([this]() {
         handleRead();
     });
