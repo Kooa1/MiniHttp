@@ -113,3 +113,14 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
 
     send(fd_.get(), response.str().data(), response.str().size(), 0);
 }
+
+void Connection::cleanupAfterSend() {
+    if (keep_alive_ && sent_) {
+        parser_.reset();
+        input_buffer_.clear();
+        sent_ = false;
+        keep_alive_ = false;
+    } else if (sent_ && !keep_alive_) {
+        mClose();
+    }
+}

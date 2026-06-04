@@ -36,6 +36,7 @@ void RouteRegister::Register(HttpServer &server) {
             // 交回 IO 线程发送响应
             server.loop().queueInLoop([conn, result]() {
                 conn->mSend(result);
+                conn->cleanupAfterSend();
             });
         });
     });

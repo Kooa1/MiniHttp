@@ -38,6 +38,8 @@ public:
                int status_code = 200,
                const std::string &content_type = "text/plain");
 
+    void cleanupAfterSend();
+
 private:
     static constexpr size_t kMaxBufferSize = 65536;
 
