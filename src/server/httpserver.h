@@ -16,7 +16,7 @@
 #include "core/connection.h"
 #include "http/router.h"
 #include "thread/threadpool.h"
-#include "resources/socket.h"
+#include "../net/socket.h"
 
 
 class HttpServer {
