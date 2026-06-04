@@ -28,7 +28,7 @@ public:
 
     void updateChannel(Channel *ch);
 
-    void queueLoop(Functor function);
+    void queueInLoop(Functor function);
 
     void loop();
 

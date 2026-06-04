@@ -52,7 +52,7 @@ int main() {
         Request req_copy = req;
         thread_pool.submit([&loop, conn, req_copy]() {
             std::string result = "Heavy computation for " + req_copy.uri();
-            loop.queueLoop([conn, result]() {
+            loop.queueInLoop([conn, result]() {
                 conn->mSend(result);
                 conn->mClose();
             });

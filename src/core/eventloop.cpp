@@ -41,7 +41,7 @@ void EventLoop::updateChannel(Channel *ch) {
     epoll_ctl(epfd_, EPOLL_CTL_MOD, ch->fd(), &ev);
 }
 
-void EventLoop::queueLoop(Functor function) { {
+void EventLoop::queueInLoop(Functor function) { {
         std::lock_guard<std::mutex> lock_guard(mutex_);
         pending_functors_.push_back(std::move(function));
     }
