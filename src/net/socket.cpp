@@ -6,10 +6,6 @@
 
 Socket::Socket()
     : fd_(-1) {
-    fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd_ < 0) {
-        throw std::runtime_error("socket creation failed\n");
-    }
 }
 
 Socket::Socket(const int fd) : fd_(fd) {
@@ -30,10 +26,9 @@ Socket::Socket(Socket &&other) noexcept : fd_(other.fd_) {
 
 Socket &Socket::operator=(Socket &&other) noexcept {
     if (this != &other) {
-        if (fd_ >= 0) {
-            fd_ = other.fd_;
-            other.fd_ = -1;
-        }
+        if (fd_ >= 0) close(fd_);
+        fd_ = other.fd_;
+        other.fd_ = -1;
     }
     return *this;
 }

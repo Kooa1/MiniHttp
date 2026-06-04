@@ -14,9 +14,9 @@ namespace {
     }
 }
 
-HttpServer::HttpServer(const uint64_t port, size_t thread_count)
+HttpServer::HttpServer(const uint64_t port, const size_t thread_count)
     : thread_pool_(thread_count),
-      server_fd_(Socket()),
+      server_fd_(Socket(::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0))),
       accept_channel_(server_fd_.get(), EPOLLIN),
       signal_fd_(createSignalFD()),
       signal_channel_(signal_fd_.get(), EPOLLIN) {

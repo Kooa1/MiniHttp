@@ -7,7 +7,7 @@
 EventLoop::EventLoop()
     : epfd_(epoll_create1(0)),
       events_(1024),
-      eventfd_(Socket()),
+      eventfd_(Socket(::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC))),
       wakeup_channel_(new Channel(eventfd_.get(), EPOLLIN)) {
     wakeup_channel_->setReadCallBack([this]() {
         uint64_t one;
