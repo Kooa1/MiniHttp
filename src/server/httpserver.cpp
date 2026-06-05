@@ -78,7 +78,7 @@ void HttpServer::mStart() {
 }
 
 void HttpServer::setTimeout(int seconds) {
-    event_loop_group_.setTimerout(seconds);
+    event_loop_group_.setTimeout(seconds);
 }
 
 void HttpServer::onAccept() {
