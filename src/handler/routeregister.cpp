@@ -46,5 +46,18 @@ void RouteRegister::Register(HttpServer &server) {
         });
     });
 
+    server.Get("/api/routes", [](const Request &req, Connection *conn) {
+        std::ostringstream json;
+        json << R"({"routes":[)" "\n"
+             << R"(  {"method":"GET","path":"/","handler":"Hello World!"},)" "\n"
+             << R"(  {"method":"GET","path":"/about","handler":"This is my server"},)" "\n"
+             << R"(  {"method":"GET","path":"/user/:id","handler":"User: {id}"},)" "\n"
+             << R"(  {"method":"GET","path":"/user/:id/post/:pid","handler":"User: {id}, Post: {pid}"},)" "\n"
+             << R"(  {"method":"GET","path":"/slow","handler":"Heavy computation demo"},)" "\n"
+             << R"(  {"method":"GET","path":"/api/routes","handler":"This listing"})" "\n"
+             << R"(]})";
+        conn->mSend(json.str());
+    });
+
     server.ServerStatic("/static", "/home/shanhai/tmp/tmp.Tj7Vov2HvY/MiniHttp/www");
 }
