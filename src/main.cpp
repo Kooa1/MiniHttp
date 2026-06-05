@@ -11,9 +11,9 @@ int main() {
     sigprocmask(SIG_BLOCK, &mask, nullptr);
 
     HttpServer server(8080, 2, 4);
+    server.setTimeout((10));
 
     RouteRegister::Register(server);
-
     server.mStart();
 
     return 0;
