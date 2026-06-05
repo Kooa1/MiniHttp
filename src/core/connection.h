@@ -55,6 +55,10 @@ public:
 
     std::map<std::string, std::string> attributes_;
 
+    void setSent(bool s) { sent_ = s; }
+
+    void setKeepAlive(bool ka) { keep_alive_ = ka; }
+
 private:
     static constexpr size_t kMaxBufferSize = 65536;
 
