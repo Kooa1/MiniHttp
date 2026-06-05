@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiniHttp Server</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/static/" class="nav-brand">
+      <img src="logo.svg" alt="" class="nav-logo"> MiniHttp
+    </a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/user/42">User</a>
+      <a href="/slow">Slow</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-content">
+    <img src="logo.svg" alt="" class="hero-logo">
+    <h1>MiniHttp Server</h1>
+    <p class="hero-sub">A lightweight C++17 HTTP server built from scratch</p>
+    <p class="hero-desc">
+      epoll + state-machine parser + Master-Slave Multi-Reactor with ThreadPool.
+      Middleware pipeline, static file serving, and dynamic routing.
+    </p>
+    <div class="hero-badges">
+      <span class="badge">C++17</span>
+      <span class="badge">epoll</span>
+      <span class="badge">Multi-Reactor</span>
+      <span class="badge">ThreadPool</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <section class="features">
+    <h2>Architecture</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="card-icon">⚡</div>
+        <h3>Event-Driven</h3>
+        <p>epoll-based IO multiplexing with non-blocking sockets for high concurrency.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon">⚙️</div>
+        <h3>State Machine</h3>
+        <p>HTTP request parsing via a deterministic finite-state machine — no regex, no bloat.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon">🔄</div>
+        <h3>Multi-Reactor</h3>
+        <p>Master accepts connections; slave reactors handle IO in separate threads.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon">🧵</div>
+        <h3>ThreadPool</h3>
+        <p>CPU-intensive work offloaded to a worker pool, IO threads stay responsive.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon">🔗</div>
+        <h3>Middleware</h3>
+        <p>Pluggable request pipeline — logging, auth, or custom logic before the handler.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon">📁</div>
+        <h3>Static Files</h3>
+        <p>sendfile-based zero-copy serving with MIME type detection and path traversal protection.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="routes" id="routes-section">
+    <h2>Registered Routes</h2>
+    <p class="section-desc">Loading from <code>/api/routes</code> …</p>
+    <div id="routes-container">
+      <div class="loading">Loading…</div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>MiniHttp Server &mdash; Built for learning</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
