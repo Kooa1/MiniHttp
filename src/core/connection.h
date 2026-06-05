@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <memory>
 #include <chrono>
+#include <map>
 
 #include "channel.h"
 #include "eventloop.h"
@@ -51,6 +52,8 @@ public:
     void updateActiveTime() { last_active_ = std::chrono::steady_clock::now(); }
 
     std::chrono::steady_clock::time_point lastActive() const { return last_active_; }
+
+    std::map<std::string, std::string> attributes_;
 
 private:
     static constexpr size_t kMaxBufferSize = 65536;
