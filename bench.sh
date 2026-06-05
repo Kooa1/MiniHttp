@@ -15,7 +15,7 @@ else
 fi
 echo "Tool: $TOOL"
 
-# ── pre-check: is server alive? ──
+# ── pre-check ──
 if ! curl -sf -o /dev/null "$URL/"; then
     echo "ERROR: server not reachable at $URL"
     echo "Start the server first, then re-run."
@@ -37,29 +37,41 @@ declare -a SCENARIOS=(
 CONCURRENCIES=(1 10 50 100)
 
 # ── helpers ──
+# threads = min(concurrency, 2) so -c1 won't break
 run_wrk() {
-    wrk -t2 -c"$2" -d"${DURATION}s" --latency "$1" 2>&1
+    local url="$1" c="$2"
+    local t=$(( c < 2 ? c : 2 ))
+    wrk -t"$t" -c"$c" -d"${DURATION}s" --latency "$url" 2>&1
 }
 
 run_ab() {
     ab -c "$2" -t "$DURATION" -k "$1" 2>&1
 }
 
+# parse the single "Latency" stat line (not "Latency Distribution")
+_lat_stat() {
+    echo "$1" | grep -E 'Latency[[:space:]]+[0-9]'
+}
+
 parse_wrk() {
     local raw="$1"
-    local rps lat_avg lat_max
+    local lat_line
+    lat_line=$(_lat_stat "$raw")
     rps=$(echo "$raw" | grep 'Requests/sec:' | awk '{print $2}')
-    lat_avg=$(echo "$raw" | grep 'Latency' | awk '{print $2}')
-    lat_max=$(echo "$raw" | grep 'Latency' | awk '{print $4}')
-    echo "$rps|$lat_avg|$lat_max"
+    lat_avg=$(echo "$lat_line" | awk '{print $2}')
+    lat_max=$(echo "$lat_line" | awk '{print $4}')
+    p50=$(echo "$raw" | grep '50%' | awk '{print $2}')
+    p99=$(echo "$raw" | grep '99%' | awk '{print $2}')
+    # Non-2xx: wrk prints "Non-2xx or 3xx responses: N"
+    non2xx=$(echo "$raw" | grep 'Non-2xx' | awk '{print $NF}')
+    echo "$rps|$lat_avg|$lat_max|$p50|$p99|${non2xx:-0}"
 }
 
 parse_ab() {
     local raw="$1"
-    local rps lat_avg
     rps=$(echo "$raw" | grep 'Requests per second:' | awk '{print $4}')
     lat_avg=$(echo "$raw" | grep '(mean, across all concurrent requests)' | awk '{print $4}')
-    echo "$rps|${lat_avg:-N/A}|N/A"
+    echo "$rps|${lat_avg:-N/A}|N/A|N/A|N/A|0"
 }
 
 # ── init report ──
@@ -73,8 +85,8 @@ parse_ab() {
     echo ""
     echo "## Results"
     echo ""
-    echo "| Scenario | Concurrency | RPS | Avg Latency | Max Latency |"
-    echo "|----------|-------------|-----|-------------|-------------|"
+    echo "| Scenario | Concurrency | RPS | Avg Latency | Max Latency | p50 | p99 | Non-2xx |"
+    echo "|----------|-------------|-----|-------------|-------------|-----|-----|---------|"
 } > "$REPORT"
 
 results_rows=()
@@ -84,7 +96,6 @@ for entry in "${SCENARIOS[@]}"; do
     name="${entry%%|*}"
     endpoint="${entry##*|}"
     full_url="${URL}${endpoint}"
-
     echo ""
     echo "━━━ $name ━━━"
 
@@ -97,10 +108,12 @@ for entry in "${SCENARIOS[@]}"; do
             raw=$(run_ab "$full_url" "$c")
         fi
 
-        # save raw for report
-        echo "======== $name concurrency=$c ========" >> "$REPORT.raw"
-        echo "$raw" >> "$REPORT.raw"
-        echo "" >> "$REPORT.raw"
+        # save raw output
+        {
+            echo "======== $name concurrency=$c ========"
+            echo "$raw"
+            echo ""
+        } >> "$REPORT.raw"
 
         if [ "$TOOL" = "wrk" ]; then
             parsed=$(parse_wrk "$raw")
@@ -108,12 +121,9 @@ for entry in "${SCENARIOS[@]}"; do
             parsed=$(parse_ab "$raw")
         fi
 
-        rps=$(echo "$parsed" | cut -d'|' -f1)
-        lat_avg=$(echo "$parsed" | cut -d'|' -f2)
-        lat_max=$(echo "$parsed" | cut -d'|' -f3)
-
-        echo "RPS=$rps  avg=$lat_avg  max=$lat_max"
-        results_rows+=("| $name | $c | $rps | $lat_avg | $lat_max |")
+        IFS='|' read -r rps lat_avg lat_max p50 p99 non2xx <<< "$parsed"
+        echo "RPS=$rps  avg=$lat_avg  max=$lat_max  p50=$p50  p99=$p99  non2xx=$non2xx"
+        results_rows+=("| $name | $c | $rps | $lat_avg | $lat_max | $p50 | $p99 | $non2xx |")
     done
 done
 
@@ -123,12 +133,14 @@ for row in "${results_rows[@]}"; do
 done
 
 # ── append raw ──
-echo "" >> "$REPORT"
-echo "## Raw Output" >> "$REPORT"
-echo "" >> "$REPORT"
-echo '```' >> "$REPORT"
-cat "$REPORT.raw" >> "$REPORT"
-echo '```' >> "$REPORT"
+{
+    echo ""
+    echo "## Raw Output"
+    echo ""
+    echo '```'
+    cat "$REPORT.raw"
+    echo '```'
+} >> "$REPORT"
 
 rm -f "$REPORT.raw"
 
