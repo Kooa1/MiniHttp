@@ -45,4 +45,6 @@ void RouteRegister::Register(HttpServer &server) {
             });
         });
     });
+
+    server.ServerStatic("/static", "/home/shanhai/tmp/tmp.Tj7Vov2HvY/MiniHttp/www");
 }
