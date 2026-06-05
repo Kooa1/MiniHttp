@@ -16,6 +16,7 @@
 #include "eventloop.h"
 #include "http/parser.h"
 #include "net/socket.h"
+#include "net/buffer.h"
 
 class Connection {
 public:
@@ -53,7 +54,7 @@ private:
     Socket fd_;
     Channel channel_;
     Parser parser_;
-    std::string input_buffer_;
+    Buffer input_buffer_;
     CloseCallback close_callback_;
     RequestCallback request_callback_;
     bool close_ = false;

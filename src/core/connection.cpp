@@ -28,25 +28,14 @@ Connection::~Connection() {
 }
 
 void Connection::handleRead() {
-    char buf[4096];
-    int n = read(fd_.get(), buf, sizeof(buf) - 1);
+    int n = input_buffer_.readFd(fd_.get());
     if (n > 0) {
-        buf[n] = '\0';
-
-        if (input_buffer_.size() + n > kMaxBufferSize) {
-            std::cout << "input buffer exceeds limit, closing fd=" << fd_.get() << std::endl;
-            mClose();
-            return;
-        }
-
-        input_buffer_ += buf;
-
-        size_t consumed = parser_.parse(input_buffer_.data(), input_buffer_.size());
+        size_t consumed = parser_.parse(input_buffer_.peek(), input_buffer_.readableBytes());
         if (parser_.hasError()) {
             mClose();
             return;
         }
-        input_buffer_.erase(0, consumed);
+        input_buffer_.retrieve(consumed);
         if (parser_.isDone()) {
             if (request_callback_) {
                 request_callback_(parser_.getRequest(), this);
@@ -56,7 +45,7 @@ void Connection::handleRead() {
                 std::cout << "DEBUG handleRead: keep_alive_=" << keep_alive_ << std::endl;
                 if (keep_alive_) {
                     parser_.reset();
-                    input_buffer_.clear();
+                    input_buffer_.retrieveAll();
                     sent_ = false;
                     keep_alive_ = false;
                 } else {
@@ -121,7 +110,7 @@ void Connection::mSend(const std::string &body, int status_code, const std::stri
 void Connection::cleanupAfterSend() {
     if (keep_alive_ && sent_) {
         parser_.reset();
-        input_buffer_.clear();
+        input_buffer_.retrieveAll();
         sent_ = false;
         keep_alive_ = false;
     } else if (sent_ && !keep_alive_) {
