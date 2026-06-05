@@ -5,6 +5,11 @@
 #include "routeregister.h"
 
 void RouteRegister::Register(HttpServer &server) {
+    server.use([](const Request &req, Connection *conn, Middleware::Next next) {
+        std::cout << "[" << req.methodStr() << "] " << req.uri() << std::endl;
+        next();
+    });
+
     server.Get("/", [](const Request &req, Connection *conn) {
         conn->mSend("Hello World!");
     });

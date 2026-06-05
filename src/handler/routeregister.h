@@ -6,6 +6,8 @@
 #define MINIHTTP_ROUTEREGISTER_H
 
 #include "server/httpserver.h"
+#include "core/connection.h"
+#include "http/middleware.h"
 
 class RouteRegister {
 public:
