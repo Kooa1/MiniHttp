@@ -24,6 +24,8 @@ public:
 
     void stopAll();
 
+    void setTimeout(int seconds);
+
 private:
     std::vector<std::unique_ptr<SlaveEventLoop> > slaves_;
     std::vector<std::thread> threads_;

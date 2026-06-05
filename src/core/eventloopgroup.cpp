@@ -44,3 +44,9 @@ void EventLoopGroup::stopAll() {
         slave->closeAllConnection();
     }
 }
+
+void EventLoopGroup::setTimeout(int seconds) {
+    for (auto &slave: slaves_) {
+        slave->setTimeout(seconds);
+    }
+}
