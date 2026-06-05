@@ -14,7 +14,8 @@ Connection::Connection(EventLoop *loop, Socket fd)
     : loop_(loop),
       fd_(std::move(fd)),
       channel_(fd_.get(), EPOLLIN),
-      alive_(std::make_shared<bool>(true)) {
+      alive_(std::make_shared<bool>(true)),
+      last_active_(std::chrono::steady_clock::now()) {
     int flags = fcntl(fd_.get(), F_GETFL, 0);
     fcntl(fd_.get(), F_SETFL, flags | O_NONBLOCK);
     channel_.setReadCallBack([this]() {
@@ -30,6 +31,7 @@ Connection::~Connection() {
 void Connection::handleRead() {
     int n = input_buffer_.readFd(fd_.get());
     if (n > 0) {
+        updateActiveTime();
         size_t consumed = parser_.parse(input_buffer_.peek(), input_buffer_.readableBytes());
         if (parser_.hasError()) {
             mClose();

@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unordered_map>
 #include <memory>
+#include <chrono>
 
 #include "channel.h"
 #include "eventloop.h"
@@ -47,6 +48,10 @@ public:
 
     std::shared_ptr<bool> aliveToken() const { return alive_; }
 
+    void updateActiveTime() { last_active_ = std::chrono::steady_clock::now(); }
+
+    std::chrono::steady_clock::time_point lastActive() const { return last_active_; }
+
 private:
     static constexpr size_t kMaxBufferSize = 65536;
 
@@ -62,8 +67,9 @@ private:
     bool keep_alive_ = false;
 
     static const std::unordered_map<int, std::string> kStatusText;
-
     std::shared_ptr<bool> alive_;
+
+    std::chrono::steady_clock::time_point last_active_;
 };
 
 
