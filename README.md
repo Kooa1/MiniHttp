@@ -1,170 +1,188 @@
 # MiniHttp
 
-一个基于 Linux epoll 的 C++17 高性能 HTTP 服务器，采用 **主从 Reactor（Master-Slave Reactor）** 架构。
-
----
+一个基于 **Linux epoll** 的 C++17 HTTP 服务器，采用 **主从 Reactor（Master-Slave Multi-Reactor）** 架构，内置线程池，支持中间件管道和静态文件服务。
 
 ## 架构
 
 ```
-┌─ main() ──────────────────────────────────────────────────┐
-│                                                           │
-│   HttpServer(port=8080, io_thread=2, worker=4)            │
-│                                                           │
-│   ┌── Master Reactor (main 线程) ──────────────────────┐  │
-│   │  epoll: 仅监听 server_fd + signalfd                │  │
-│   │  职责: accept 新连接 + 信号处理                     │  │
-│   └─────────────────────┬───────────────────────────────┘  │
-│                         │ round-robin 分发                 │
-│            ┌────────────┴────────────┐                    │
-│            ▼                         ▼                     │
-│   ┌── Slave Reactor 1 ────┐ ┌── Slave Reactor 2 ────┐    │
-│   │ 线程1: epoll_wait     │ │ 线程2: epoll_wait     │    │
-│   │ read → parse → 回调   │ │ read → parse → 回调   │    │
-│   │ Connection 池          │ │ Connection 池          │    │
-│   └────────┬──────────────┘ └────────┬──────────────┘    │
-│            │                          │                    │
-│            └────────────┬─────────────┘                    │
-│                         ▼                                  │
-│   ┌── ThreadPool (4 worker 线程) ──────────────────────┐  │
-│   │  CPU 密集计算 / 阻塞操作                            │  │
-│   └────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│               Master Reactor (main thread)                  │
+│  EventLoop: accept 连接 + 信号处理                          │
+└──────────────────────┬─────────────────────────────────────┘
+                       │ round-robin 分发 client_fd
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ SlaveEventLoop 1  │ │ SlaveEventLoop 2 │ │ ... (可配置 N 个) │
+│ epoll fd          │ │ epoll fd          │ │                   │
+│ Connection set    │ │ Connection set    │ │                   │
+│ read/parse/       │ │ read/parse/       │ │                   │
+│ dispatch/send     │ │ dispatch/send     │ │                   │
+└─────────┬────────┘ └─────────┬────────┘ └─────────┬─────────┘
+          │                    │                     │
+          └────────────────────┼─────────────────────┘
+                               │ 耗时任务提交
+                               ▼
+                      ┌────────────────┐
+                      │   ThreadPool   │
+                      │  (CPU 密集计算) │
+                      └────────────────┘
 ```
 
-**线程模型（共 7 线程）**：
-
-| 角色 | 数量 | 职责 |
-|------|------|------|
-| Master Reactor | 1（main 线程） | accept + 信号处理 |
-| Slave Reactor | N（默认 2） | I/O 读写 + HTTP 解析 + 回调 |
-| Worker 线程 | M（默认 4） | CPU 密集计算 |
-
----
+- **主从 Reactor**: 1 个 Master Reactor（main 线程，仅负责 accept）+ N 个 Slave Reactor（IO 线程，负责读写/解析/发送），充分利用多核 CPU
+- **线程池**: M 个 Worker 线程处理 CPU 密集型计算，IO 线程保持响应
+- **跨线程唤醒**: eventfd 实现 IO 线程与 Worker 线程之间的无锁通信
 
 ## 特性
 
-- **主从 Reactor 架构** — 1 Master accept + N Slave I/O，充分利用多核
-- **跨线程唤醒** — eventfd 实现线程间高效通知
-- **HTTP/1.1 解析** — 有限状态机解析 Method / URI / Headers / Body
-- **参数化路由** — 支持 `GET /user/:id/post/:pid` 动态路径匹配
-- **Keep-Alive** — 支持长连接复用
-- **线程池** — 异步处理耗时业务，不阻塞 I/O 线程
-- **生命周期安全** — `shared_ptr<bool>` token 防止异步回调悬挂指针
-- **RAII 资源管理** — Socket move-only 封装，自动管理 fd
-- **优雅关闭** — signalfd + 逐层停止（Master → Slave → ThreadPool）
-- **缓冲区安全** — token 上限 8KB，body 上限 1MB，连接缓冲上限 64KB
+- **事件驱动** — 基于 epoll 的边缘触发 IO 多路复用，非阻塞 socket
+- **HTTP 解析** — 确定性有限状态机（DFA）解析 HTTP 请求，支持 GET/POST/HEAD
+- **动态路由** — 支持参数化路由（`/user/:id/post/:pid`），自动路径参数提取
+- **中间件管道** — 插件式请求处理链（日志、鉴权等），洋葱模型
+- **静态文件服务** — 基于 `sendfile` 的零拷贝文件传输，支持目录索引 + MIME 类型检测 + 路径遍历防护
+- **线程池** — 生产者-消费者模型，Worker 线程处理耗时业务逻辑
+- **连接保活** — HTTP/1.1 keep-alive 支持，连接复用
+- **连接超时** — timerfd 定时器，周期性检测并关闭空闲连接
+- **生命周期管理** — `shared_ptr<bool>` 令牌机制，安全处理跨线程连接关闭竞态
+- **优雅关闭** — signalfd 信号处理，逐层反序停止（Slave → ThreadPool）
+- **Buffer 设计** — 非连续缓冲区，`readv` + 栈上 extrabuf 减少系统调用
+- **RAII 封装** — Socket 等资源使用 move-only RAII 封装，自动管理生命周期
 
----
-
-## 快速开始
-
-### 依赖
-
-- Linux（需要 epoll、eventfd、signalfd 支持）
-- CMake ≥ 3.16
-- 支持 C++17 的编译器（GCC 8+ / Clang 10+）
-
-### 构建
+## 构建
 
 ```bash
+# 依赖: CMake 3.16+, C++17 编译器, Linux (epoll)
 mkdir build && cd build
-cmake ..
-make -j
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
 ```
 
-### 运行
+## 使用
 
 ```bash
 ./minihttp_server
+
+# 默认监听 http://localhost:8080
 ```
 
-默认监听 `http://localhost:8080`。
+### 命令行参数
 
----
+在 main.cpp 中配置：
 
-## 路由示例
-
-| 方法 | 路径 | 响应 |
-|------|------|------|
-| GET | `/` | `Hello World!` |
-| GET | `/about` | `This is my server` |
-| GET | `/user/:id` | `User: {id}` |
-| GET | `/user/:id/post/:pid` | `User: {id}, Post: {pid}` |
-| GET | `/slow` | 线程池异步计算的 URI 信息 |
-
----
-
-## 核心模块
-
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| **Channel** | `core/channel.h/cpp` | I/O 事件通道，fd + 事件类型 + 回调 |
-| **EventLoop** | `core/eventloop.h/cpp` | 事件循环基类，epoll 封装 + 跨线程任务队列 |
-| **SlaveEventLoop** | `core/slaveeventloop.h/cpp` | 从 Reactor，继承 EventLoop + 连接管理 |
-| **EventLoopGroup** | `core/eventloopgroup.h/cpp` | Slave 组管理，round-robin 负载均衡 |
-| **Connection** | `core/connection.h/cpp` | TCP 连接管理，HTTP 读写 + 生命周期 |
-| **Parser** | `http/parser.h/cpp` | HTTP 请求解析器（有限状态机） |
-| **Request** | `http/request.h/cpp` | HTTP 请求数据模型 |
-| **Router** | `http/router.h/cpp` | 路由分发，支持 `:param` 动态匹配 |
-| **ThreadPool** | `thread/threadpool.h/cpp` | 工作者线程池（生产者-消费者） |
-| **Socket** | `net/socket.h/cpp` | fd 的 RAII 封装（move-only） |
-| **HttpServer** | `server/httpserver.h/cpp` | 服务器主类，组装所有组件 |
-
----
-
-## 数据流
-
-```
-客户端连接
-  │
-  ▼
-Master Reactor: accept → round-robin 选择 Slave
-  │
-  ▼  [eventfd 跨线程唤醒]
-  │
-Slave Reactor: 创建 Connection → 加入 epoll
-  │
-  ▼  [数据到达]
-  │
-handleRead() → Parser::parse() → Router::dispatch()
-  │
-  ├── 轻量路由 → conn->mSend()           (当前 I/O 线程)
-  └── 耗时路由 → ThreadPool.submit()
-                   └── queueInLoop()     (交回 I/O 线程发送)
+```cpp
+HttpServer server(port, io_thread_count, worker_thread_count);
+server.setTimeout(seconds);
 ```
 
----
+默认值：端口 8080，IO 线程 2，Worker 线程 4，超时 10 秒。
 
-## 项目结构
+### 注册路由
 
-```
-src/
-├── main.cpp                      # 入口
-├── core/
-│   ├── channel.h/cpp             # I/O 事件通道
-│   ├── eventloop.h/cpp           # 事件循环（基类）
-│   ├── slaveeventloop.h/cpp      # 从 Reactor
-│   ├── eventloopgroup.h/cpp      # 从 Reactor 组
-│   └── connection.h/cpp          # TCP 连接
-├── net/
-│   └── socket.h/cpp              # Socket RAII 封装
-├── http/
-│   ├── request.h/cpp             # HTTP 请求模型
-│   ├── parser.h/cpp              # HTTP 解析器
-│   └── router.h/cpp              # 路由分发
-├── server/
-│   └── httpserver.h/cpp          # 服务器封装
-├── handler/
-│   └── routeregister.h/cpp       # 路由注册
-├── thread/
-│   └── threadpool.h/cpp          # 线程池
-└── utils/
-    └── stringutil.h/cpp          # 工具函数
+```cpp
+server.Get("/", [](const Request &req, Connection *conn) {
+    conn->mSend("Hello World!");
+});
+
+server.Get("/user/:id", [](const Request &req, Connection *conn) {
+    conn->mSend("User: " + req.param("id"));
+});
 ```
 
----
+### 使用中间件
 
-## License
+```cpp
+server.use([](const Request &req, Connection *conn, Middleware::Next next) {
+    // 前置处理
+    next();  // 调用下一个中间件或路由处理
+    // 后置处理
+});
+```
+
+### 静态文件服务
+
+```cpp
+server.ServerStatic("/static", "/path/to/www");
+```
+
+## 项目的结构
+
+```
+MiniHttp/
+├── CMakeLists.txt
+└── src/
+    ├── main.cpp                       # 入口
+    ├── core/                          # 核心事件驱动模块
+    │   ├── channel.h/cpp              # IO 事件通道
+    │   ├── eventloop.h/cpp            # 事件循环基类（epoll + eventfd）
+    │   ├── slaveeventloop.h/cpp       # 从 Reactor（+ 连接管理 + timerfd）
+    │   ├── eventloopgroup.h/cpp       # 从 Reactor 组管理（round-robin）
+    │   └── connection.h/cpp           # TCP 连接管理
+    ├── net/                           # 网络层
+    │   ├── socket.h/cpp               # Socket RAII 封装
+    │   └── buffer.h/cpp               # 缓冲区（readv + 自动扩容）
+    ├── http/                          # HTTP 协议层
+    │   ├── request.h/cpp              # HTTP 请求模型
+    │   ├── parser.h/cpp               # HTTP 解析器（有限状态机）
+    │   ├── router.h/cpp               # 路由分发（+ 参数化路由）
+    │   ├── middleware.h/cpp           # 中间件管道
+    │   └── staticfilehandler.h/cpp    # 静态文件服务（sendfile）
+    ├── server/
+    │   └── httpserver.h/cpp           # 服务器封装
+    ├── handler/
+    │   └── routeregister.h/cpp        # 路由注册
+    ├── thread/
+    │   └── threadpool.h/cpp           # 线程池
+    └── utils/
+        └── stringutil.h/cpp           # 路径分割工具
+```
+
+## 基准测试
+
+> 测试环境: wrk | 测试时长: 10s | 服务端配置: 2 IO 线程 + 4 Worker 线程
+
+| 场景 | 并发 | RPS | 平均延迟 | 最大延迟 | p50 | p99 |
+|------|------|-----|---------|---------|-----|-----|
+| GET / | 1 | 20,039 | 63.17us | 5.34ms | 39.00us | 438.00us |
+| GET / | 10 | 42,355 | 148.23ms | 1.66s | 142.00us | 1.51s |
+| GET / | 50 | 43,643 | 189.89ms | 1.95s | 650.00us | 1.79s |
+| GET / | 100 | 40,864 | 195.30ms | 1.88s | 1.26ms | 1.75s |
+| GET /about | 1 | 17,047 | 29.63ms | 831.08ms | 44.00us | 713.51ms |
+| GET /about | 10 | 28,217 | 110.87ms | 1.66s | 115.00us | 1.53s |
+| GET /about | 50 | 28,234 | 25.94ms | 756.50ms | 515.00us | 641.33ms |
+| GET /about | 100 | 28,508 | 1.75ms | 62.58ms | 0.98ms | 16.52ms |
+| GET /slow (线程池) | 1 | 7,783 | 64.09ms | 1.23s | 95.00us | 1.11s |
+| GET /slow (线程池) | 10 | 28,562 | 59.59ms | 911.15ms | 248.00us | 811.05ms |
+| GET /slow (线程池) | 50 | 28,717 | 128.79ms | 1.28s | 1.14ms | 1.14s |
+| GET /slow (线程池) | 100 | 32,279 | 185.80ms | 1.70s | 1.96ms | 1.56s |
+| GET static/index.html | 1 | 9,229 | 50.44ms | 1.08s | 81.00us | 967.21ms |
+| GET static/index.html | 10 | 25,538 | 164.66ms | 1.57s | 262.00us | 1.43s |
+| GET static/index.html | 50 | 24,730 | 170.40ms | 1.50s | 1.28ms | 1.43s |
+| GET static/index.html | 100 | 25,585 | 116.48ms | 1.22s | 2.88ms | 1.10s |
+| GET /api/routes | 1 | 16,329 | 89.02ms | 1.40s | 44.00us | 1.28s |
+| GET /api/routes | 10 | 20,357 | 94.50ms | 1.52s | 126.00us | 1.40s |
+| GET /api/routes | 50 | 24,982 | 2.74ms | 177.52ms | 496.00us | 64.75ms |
+| GET /api/routes | 100 | 16,637 | 1.81ms | 38.66ms | 848.00us | 18.86ms |
+| GET /user/1234 (动态路由) | 1 | 13,944 | 489.21us | 74.04ms | 56.00us | 14.11ms |
+| GET /user/1234 (动态路由) | 10 | 21,105 | 211.50ms | 1.94s | 178.00us | 1.80s |
+| GET /user/1234 (动态路由) | 50 | 26,494 | 1.39ms | 81.09ms | 677.00us | 16.46ms |
+| GET /user/1234 (动态路由) | 100 | 18,539 | 1.79ms | 32.68ms | 1.43ms | 13.27ms |
+
+### 测试结果要点
+
+- **最佳吞吐**: `GET /` 场景在并发 50 时达到 **43,643 RPS**，p99 延迟 1.79s
+- **最稳定**: `GET /about` 在并发 100 时 p99 仅 16.52ms，高并发下延迟分布均匀
+- **sendfile 效率**: 静态文件服务（`/static/`）RPS 约 25,000，传输吞吐达 76MB/s
+- **动态路由**: 参数化路由（`/user/1234`）RPS 约 26,000，p99 低至 13-16ms
+- **线程池**: `/slow` 涉及线程池任务提交 + 跨线程回调，RPS 约 32,000
+- **无错误**: 所有测试场景 **Non-2xx = 0**，无超时/连接错误（在并发≥50 时有 socket timeout，属于 wrk 预期行为）
+
+## 依赖
+
+- Linux（需要 epoll、eventfd、signalfd、timerfd、sendfile）
+- CMake >= 3.16
+- C++17 编译器
+- pthread（连接超时定时器需要）
+
+## 许可证
 
 MIT
