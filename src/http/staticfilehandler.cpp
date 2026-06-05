@@ -84,8 +84,17 @@ void StaticFileHandler::operator()(const Request &req, Connection *conn) {
         return;
     }
 
-    if (!sendFile(conn, filepath)) {
+    bool keep_alive = false;
+    std::string conn_hdr = req.header("connection");
+    if (conn_hdr == "keep-alive") {
+        keep_alive = true;
+    } else if (conn_hdr != "close" && req.version() == Request::HTTP_1_1) {
+        keep_alive = true;
+    }
+
+    if (!sendFile(conn, filepath, keep_alive)) {
         conn->mSend("Internal Server Error", 500);
+        conn->cleanupAfterSend();
     }
 }
 
@@ -110,12 +119,14 @@ std::string StaticFileHandler::mimeType(const std::string &ext) const {
     return it != kMimeTypes.end() ? it->second : "application/octet-stream";
 }
 
-bool StaticFileHandler::sendFile(Connection *conn, const std::string &filepath) const {
+bool StaticFileHandler::sendFile(Connection *conn, const std::string &filepath, bool keep_alive) const {
     int fd = open(filepath.c_str(), O_RDONLY);
     if (fd < 0) return false;
 
     struct stat st{};
     fstat(fd, &st);
+
+    conn->setKeepAlive(keep_alive);
 
     // 查扩展名 → MIME
     size_t dot = filepath.find_last_of('.');

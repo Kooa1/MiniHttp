@@ -29,7 +29,7 @@ private:
 
     std::string mimeType(const std::string &ext) const;
 
-    bool sendFile(Connection *conn, const std::string &filepath) const;
+    bool sendFile(Connection *conn, const std::string &filepath, bool keep_alive) const;
 
     std::string prefix_;
     std::string root_dir_;
