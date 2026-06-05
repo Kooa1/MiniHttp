@@ -77,6 +77,10 @@ void HttpServer::mStart() {
     mStop();
 }
 
+void HttpServer::setTimeout(int seconds) {
+    event_loop_group_.setTimerout(seconds);
+}
+
 void HttpServer::onAccept() {
     struct sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);

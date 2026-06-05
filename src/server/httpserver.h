@@ -46,6 +46,8 @@ public:
 
     void mStart();
 
+    void setTimeout(int seconds);
+
 private:
     void onAccept();
 
