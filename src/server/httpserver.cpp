@@ -4,6 +4,8 @@
 
 #include "httpserver.h"
 
+#include "http/staticfilehandler.h"
+
 namespace {
     int createSignalFD() {
         sigset_t mask; // 与 main.cpp 用同一组信号
@@ -94,6 +96,10 @@ void HttpServer::onRequest(const Request &req, Connection *conn) {
         conn->mSend("Internal Server Error", 500);
         conn->cleanupAfterSend();
     }
+}
+
+void HttpServer::ServerStatic(const std::string &prefix, const std::string &dir) {
+    router_.setFallback(StaticFileHandler(prefix, dir));
 }
 
 void HttpServer::onAccept() {

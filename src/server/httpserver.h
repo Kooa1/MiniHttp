@@ -53,6 +53,8 @@ public:
 
     void onRequest(const Request &req, Connection *conn);
 
+    void ServerStatic(const std::string &prefix, const std::string &dir);
+
 private:
     void onAccept();
 
