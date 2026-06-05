@@ -19,8 +19,12 @@ public:
 
     void dispatch(const Request &req, Connection *conn);
 
+    void setFallback(Handler handler);
+
 private:
     std::unordered_map<std::string, std::map<std::string, Handler> > router_;
+
+    Handler fallback_;
 };
 
 

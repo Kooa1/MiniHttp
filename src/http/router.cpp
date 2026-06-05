@@ -52,5 +52,13 @@ void Router::dispatch(const Request &req, Connection *conn) {
         }
     }
 
-    conn->mSend("Not Found", 404);
+    if (fallback_) {
+        fallback_(req, conn);
+    } else {
+        conn->mSend("Not Found", 404);
+    }
+}
+
+void Router::setFallback(Handler handler) {
+    fallback_ = std::move(handler);
 }
