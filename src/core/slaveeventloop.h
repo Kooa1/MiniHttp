@@ -5,16 +5,18 @@
 #ifndef MINIHTTP_SLAVEEVENTLOOP_H
 #define MINIHTTP_SLAVEEVENTLOOP_H
 
+#include <atomic>
 #include <unordered_set>
+#include <sys/timerfd.h>
 
 #include "eventloop.h"
 #include "connection.h"
 
 class SlaveEventLoop : public EventLoop {
 public:
-    SlaveEventLoop() = default;
+    SlaveEventLoop();
 
-    ~SlaveEventLoop() override = default;
+    ~SlaveEventLoop() override;
 
     void addConnection(Connection *conn) { connections_.insert(conn); }
 
@@ -24,8 +26,14 @@ public:
 
     void closeAllConnection();
 
+    void setTimeout(int seconds) { timeout_seconds_.store(seconds, std::memory_order_relaxed); }
+
 private:
+    void handleTimeout();
+
     std::unordered_set<Connection *> connections_;
+    Channel *timer_channel_;
+    std::atomic<int> timeout_seconds_{30};
 };
 
 
