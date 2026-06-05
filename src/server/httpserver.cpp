@@ -91,6 +91,7 @@ void HttpServer::onRequest(const Request &req, Connection *conn) {
     try {
         middleware_.run(req, conn, [this, &req, conn]() {
             router_.dispatch(req, conn);
+            conn->cleanupAfterSend();
         });
     } catch (const std::exception &e) {
         conn->mSend("Internal Server Error", 500);
