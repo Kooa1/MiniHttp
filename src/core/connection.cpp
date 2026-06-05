@@ -5,7 +5,8 @@
 #include "connection.h"
 
 const std::unordered_map<int, std::string> Connection::kStatusText = {
-    {200, "ok"},
+    {200, "OK"},
+    {403, "Forbidden"},
     {404, "Not Found"},
     {500, "Internal Server Error"}
 };
