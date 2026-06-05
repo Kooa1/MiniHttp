@@ -20,6 +20,7 @@
 #include "core/slaveeventloop.h"
 #include "core/connection.h"
 #include "http/router.h"
+#include "http/middleware.h"
 #include "thread/threadpool.h"
 #include "../net/socket.h"
 
@@ -48,6 +49,10 @@ public:
 
     void setTimeout(int seconds);
 
+    void use(Middleware::Func mw);
+
+    void onRequest(const Request &req, Connection *conn);
+
 private:
     void onAccept();
 
@@ -56,6 +61,7 @@ private:
     EventLoop loop_;
     EventLoopGroup event_loop_group_;
     ThreadPool thread_pool_;
+    Middleware middleware_;
     Router router_;
 
     Socket server_fd_;

@@ -81,6 +81,21 @@ void HttpServer::setTimeout(int seconds) {
     event_loop_group_.setTimeout(seconds);
 }
 
+void HttpServer::use(Middleware::Func mw) {
+    middleware_.use(std::move(mw));
+}
+
+void HttpServer::onRequest(const Request &req, Connection *conn) {
+    try {
+        middleware_.run(req, conn, [this, &req, conn]() {
+            router_.dispatch(req, conn);
+        });
+    } catch (const std::exception &e) {
+        conn->mSend("Internal Server Error", 500);
+        conn->cleanupAfterSend();
+    }
+}
+
 void HttpServer::onAccept() {
     struct sockaddr_in client_addr{};
     socklen_t client_len = sizeof(client_addr);
@@ -104,7 +119,7 @@ void HttpServer::onAccept() {
         });
 
         conn->setRequestCallback([this](const Request &req, Connection *conn) {
-            router_.dispatch(req, conn);
+            onRequest(req, conn);
         });
 
         slave->addConnection(conn);
